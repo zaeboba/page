@@ -1,0 +1,29 @@
+.links {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin: 10px;
+  position: fixed;
+  top: 7%;
+  left: 13%;
+  -webkit-transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%);
+}
+
+.icon {
+    font-size: 1.5rem;
+    margin: 0.6rem;
+    color: white;
+}
+
+.icon > i {
+  -webkit-transition: -webkit-transform 0.2s ease-in-out, font-size 0.2s;
+  transition: transform 0.2s ease-in-out, font-size 0.2s;
+}
+
+.icon > i:hover {
+  -webkit-transform: rotate(360deg);
+  transform: rotate(360deg);
+  font-size: 4rem;
+}
