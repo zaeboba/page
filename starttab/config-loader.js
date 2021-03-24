@@ -1,7 +1,7 @@
 var config = {
     "config": {
-        "greeting": "heya 🤙",
-        "img": "img/lain.gif"
+        "greeting": "heya",
+        "img": "img/vader.jpg"
         
     },
     "links-left": [
