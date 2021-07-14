@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>~</title>
+        <link rel="stylesheet" type="text/css" href="w3css.css" media="screen">
+        <link rel="stylesheet" type="text/css" href="main.css" media="screen">
+        <link rel="icon" href="favicon.ico" type="image/x-icon">
+        <meta charset="UTF-8">
+
+        <script src="startpage-handler.js"></script>
+        <script src="data-handler.js"></script>
+        <script src="config-handler.js"></script>
+        <script src="main.js"></script>
+    </head>
+    <body>
+        <div class="container-outer" hidden id="outercontainer">
+            <div class="left-img" id="waifuimg">
+                <img src="img/shelti.png" draggable="false">
+            </div>
+            <div class="w3-container container" id="maincontainer">
+                <h1 class="heya"><span id="greeting">heya</span><span class="accent"> ~</span></h1>
+                <div class="w3-row w3gridclass">
+                    <div class = "w3-col s6 m6 l6 borderme">
+                        <ul id="wrapper-left" class = "drag-container"></ul>
+                    </div>
+                    <div class = "w3-col s6 m6 l6 borderme">
+                        <ul class="right drag-container" id="wrapper-right"</ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <button class="toggle" id="toggle" aria-label="toggle waifu">
+            &#9680;
+        </button>
+        <button class="settings" id="settings" aria-label="show settings">
+            &#9881;
+        </button>
+    </body>
+</html>
