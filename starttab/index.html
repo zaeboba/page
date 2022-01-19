@@ -1,39 +1,21 @@
 <!DOCTYPE html>
-<html>
-    <head>
-        <title>~</title>
-        <link rel="stylesheet" type="text/css" href="w3css.css" media="screen">
-        <link rel="stylesheet" type="text/css" href="main.css" media="screen">
-        <link rel="icon" href="favicon.ico" type="image/x-icon">
-        <meta charset="UTF-8">
-
-        <script src="startpage-handler.js"></script>
-        <script src="data-handler.js"></script>
-        <script src="config-handler.js"></script>
-        <script src="main.js"></script>
-    </head>
-    <body>
-        <div class="container-outer" hidden id="outercontainer">
-            <div class="left-img" id="waifuimg">
-                <img src="img/shelti.png" draggable="false">
-            </div>
-            <div class="w3-container container" id="maincontainer">
-                <h1 class="heya"><span id="greeting">heya</span><span class="accent"> ~</span></h1>
-                <div class="w3-row w3gridclass">
-                    <div class = "w3-col s6 m6 l6 borderme">
-                        <ul id="wrapper-left" class = "drag-container"></ul>
-                    </div>
-                    <div class = "w3-col s6 m6 l6 borderme">
-                        <ul class="right drag-container" id="wrapper-right"</ul>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <button class="toggle" id="toggle" aria-label="toggle waifu">
-            &#9680;
-        </button>
-        <button class="settings" id="settings" aria-label="show settings">
-            &#9881;
-        </button>
-    </body>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="./favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#000000" />
+    <meta
+      name="description"
+      content="A generic startpage with the tweak of being accessible and offering many customization options."
+    />
+    <link rel="apple-touch-icon" href="./logo192.png" />
+    <link rel="manifest" href="./manifest.json" />
+    <title>New tab</title>
+    <script defer="defer" src="./static/js/main.js"></script>
+  </head>
+  <body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+  </body>
 </html>
