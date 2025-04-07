@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>WireGuard to Clash Converter</title>
+  <style>
+    :root {
+      --bg-image: url("https://images.unsplash.com/photo-1545336115-dd90faa78b91"); /* Укажи здесь ссылку или оставь url("") */
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+    }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #121212;
+      background-image: var(--bg-image);
+      background-size: cover;
+      background-position: center;
+      background-attachment: fixed;
+      color: #e0e0e0;
+      padding: 20px;
+      transition: background-color 0.3s ease, color 0.3s ease;
+    }
+
+    .wrapper {
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    .container {
+      margin-bottom: 20px;
+      background: rgba(0, 0, 0, 0.6);
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+      transition: all 0.3s ease;
+    }
+
+    textarea {
+      width: 100%;
+      height: 150px;
+      margin: 10px 0;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #333;
+      background-color: #1e1e1e;
+      color: #e0e0e0;
+      resize: vertical;
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
+      transition: all 0.2s ease;
+      box-sizing: border-box;
+    }
+
+    button {
+      padding: 10px 20px;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      margin: 5px;
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+      transition: all 0.3s ease;
+    }
+
+    button:hover {
+      background: #66bb6a;
+      color: #ffffff;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+    }
+
+    .download-btn {
+      background: #2196F3;
+    }
+
+    .download-btn:hover {
+      background: #42a5f5;
+    }
+
+    .file-list, .result {
+      background: rgba(30, 30, 30, 0.7);
+      padding: 15px;
+      border-radius: 10px;
+      margin-top: 15px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+      overflow: auto;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    h1 {
+      text-align: center;
+      font-weight: 600;
+      font-size: 28px;
+      margin-bottom: 25px;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.7);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <h1>WireGuard → Clash Конвертер</h1>
+
+    <div class="container">
+      <input type="file" id="wgFiles" accept=".conf" multiple>
+      <button onclick="convert()">Конвертировать все</button>
+      <button class="download-btn hidden" id="downloadBtn">Скачать YAML</button>
+    </div>
+
+    <div class="file-list" id="fileList"></div>
+
+    <div class="result" id="output">
+      <textarea id="yamlOutput" placeholder="Результат YAML появится здесь..."></textarea>
+    </div>
+  </div>
+  
+  <script>
+    // Переключение темы между тёмной и светлой
+    function toggleTheme() {
+      if(document.body.classList.contains('dark')) {
+        document.body.classList.remove('dark');
+        document.body.classList.add('light');
+      } else {
+        document.body.classList.remove('light');
+        document.body.classList.add('dark');
+      }
+    }
+    
+    // Обновление фонового изображения
+    function updateBackground() {
+      const url = document.getElementById('bgUrl').value.trim();
+      if(url) {
+        document.body.style.backgroundImage = `url(${url})`;
+      } else {
+        document.body.style.backgroundImage = 'none';
+      }
+    }
+    
+    const COUNTRY_FLAGS = {
+      'JP': '🇯🇵',
+      'US': '🇺🇸',
+      'NL': '🇳🇱',
+      'DE': '🇩🇪',
+      'FR': '🇫🇷',
+      'GB': '🇬🇧',
+      'CA': '🇨🇦',
+      'AU': '🇦🇺'
+    };
+
+    const COMMENTS = {
+      jc: ' # от 1 до 128, меньше = быстрее',
+      jmin: ' # от 1 до 1280, но меньше jmax',
+      jmax: ' # до 1280, но больше, чем jmin'
+    };
+
+    let proxyList = [];
+    let randomGroupName = 'Random_Group';
+
+    function getRandomInt(min, max) {
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    function generateAmneziaDefaults() {
+      const jc = getRandomInt(1, 128);
+      const jmin = getRandomInt(1, 1279);
+      const jmax = getRandomInt(jmin + 1, 1280);
+      
+      return {
+        jc: jc,
+        jmin: jmin,
+        jmax: jmax,
+        s1: 0,
+        s2: 0,
+        h1: 1,
+        h2: 2,
+        h3: 3,
+        h4: 4
+      };
+    }
+
+    function parseWGConfig(text) {
+      const config = { 
+        interface: { amneziaOptions: {} },
+        peers: []
+      };
+      let currentSection = null;
+
+      text.split('\n').forEach(line => {
+        line = line.trim();
+        if (!line) return;
+
+        if (currentSection === 'peer' && line.startsWith('#')) {
+          const nameMatch = line.match(/#\s*(.+)/);
+          if (nameMatch) {
+            config.peers[config.peers.length - 1].name = nameMatch[1].trim();
+          }
+          return;
+        }
+
+        if (line.startsWith('[') && line.endsWith(']')) {
+          currentSection = line.slice(1, -1).toLowerCase();
+          if (currentSection === 'peer') config.peers.push({ amneziaOptions: {} });
+          return;
+        }
+
+        const [key, ...valueParts] = line.split('=');
+        const cleanKey = key.trim().toLowerCase();
+        const value = valueParts.join('=').trim();
+
+        if (currentSection === 'interface') {
+          if (['jc', 'jmin', 'jmax', 's1', 's2', 'h1', 'h2', 'h3', 'h4'].includes(cleanKey)) {
+            config.interface.amneziaOptions[cleanKey] = value;
+          } else {
+            config.interface[cleanKey] = value;
+          }
+        } else if (currentSection === 'peer') {
+          const peer = config.peers[config.peers.length - 1];
+          if (['jc', 'jmin', 'jmax', 's1', 's2', 'h1', 'h2', 'h3', 'h4'].includes(cleanKey)) {
+            peer.amneziaOptions[cleanKey] = value;
+          } else {
+            peer[cleanKey] = value;
+          }
+        }
+      });
+
+      return config;
+    }
+
+    function convertToClashProxy(wgConfig, fileName) {
+      const interfaceData = wgConfig.interface;
+      const peerData = wgConfig.peers[0];
+      const dnsList = interfaceData.dns ? interfaceData.dns.split(',').map(d => d.trim()) : [];
+      
+      const defaultAmnezia = generateAmneziaDefaults();
+      
+      let proxyName = peerData.name || fileName.replace('.conf', '');
+      if (!proxyName) {
+        proxyName = `Random_${Math.random().toString(36).substr(2, 5)}`;
+        randomGroupName = `Random_Group_${Math.random().toString(36).substr(2, 5)}`;
+      } else {
+        const flagMatch = proxyName.match(/^([A-Z]{2})-FREE#/);
+        if (flagMatch && COUNTRY_FLAGS[flagMatch[1]]) {
+          proxyName = proxyName.replace(flagMatch[1], COUNTRY_FLAGS[flagMatch[1]]);
+        }
+      }
+
+      const amneziaOptions = {};
+      for (const key of ['jc', 'jmin', 'jmax', 's1', 's2', 'h1', 'h2', 'h3', 'h4']) {
+        const interfaceValue = interfaceData.amneziaOptions[key];
+        const peerValue = peerData.amneziaOptions[key];
+        amneziaOptions[key] = interfaceValue || peerValue || defaultAmnezia[key];
+      }
+
+      return {
+        name: proxyName,
+        type: "wireguard",
+        server: peerData.endpoint.split(':')[0],
+        port: parseInt(peerData.endpoint.split(':')[1]),
+        ip: interfaceData.address.split('/')[0],
+        private_key: interfaceData.privatekey,
+        public_key: peerData.publickey,
+        allowed_ips: peerData.allowedips.split(',').map(ip => `'${ip.trim()}'`),
+        udp: true,
+        mtu: 1420,
+        remote_dns_resolve: true,
+        dns: dnsList,
+        'amnezia-wg-option': amneziaOptions,
+        isDefaultAmnezia: !(interfaceData.amneziaOptions.jc || peerData.amneziaOptions.jc)
+      };
+    }
+
+    function generateAmneziaOptionsYAML(options, addComments) {
+      let yaml = '    amnezia-wg-option:\n';
+      for (const [key, value] of Object.entries(options)) {
+        const comment = addComments && key in COMMENTS ? COMMENTS[key] : '';
+        yaml += `      ${key}: ${value}${comment}\n`;
+      }
+      return yaml;
+    }
+
+    function generateProxyGroups(proxies) {
+      const groups = [];
+      const protonProxies = [];
+      const amneziaProxies = [];
+      const randomProxies = [];
+
+      proxies.forEach(proxy => {
+        if (/-FREE#/.test(proxy.name)) {
+          protonProxies.push(proxy.name);
+        } else if (proxy.name.startsWith('Random_')) {
+          randomProxies.push(proxy.name);
+        } else {
+          amneziaProxies.push(proxy.name);
+        }
+      });
+
+      if (protonProxies.length > 0) {
+        groups.push(`
+- name: Proton
+  type: select
+  icon: https://res.cloudinary.com/dbulfrlrz/image/upload/v1703162849/static/logos/icons/vpn_f9embt.svg
+  proxies:
+    - ${protonProxies.join('\n    - ')}
+  url: 'http://speed.cloudflare.com/'
+  unified-delay: true
+  interval: 300`);
+      }
+
+      if (amneziaProxies.length > 0) {
+        groups.push(`
+- name: Amnezia
+  type: select
+  icon: https://amnezia.org/img/logos/logo-a-sym.svg
+  proxies:
+    - ${amneziaProxies.join('\n    - ')}
+  url: 'http://speed.cloudflare.com/'
+  unified-delay: true
+  interval: 300`);
+      }
+
+      if (randomProxies.length > 0) {
+        groups.push(`
+- name: ${randomGroupName}
+  type: select
+  icon: https://via.placeholder.com/64/92c952?text=?
+  proxies:
+    - ${randomProxies.join('\n    - ')}
+  url: 'http://speed.cloudflare.com/'
+  unified-delay: true
+  interval: 300`);
+      }
+
+      return groups.join('\n');
+    }
+
+    function convert() {
+      const files = document.getElementById('wgFiles').files;
+      if (!files.length) return alert('Выберите файлы .conf');
+
+      proxyList = [];
+      document.getElementById('fileList').innerHTML = `Обрабатываются файлы: ${Array.from(files).map(f => f.name).join(', ')}`;
+      document.getElementById('downloadBtn').classList.add('hidden');
+
+      Array.from(files).forEach((file, index) => {
+        const reader = new FileReader();
+        reader.onload = function() {
+          try {
+            const wgConfig = parseWGConfig(reader.result);
+            const proxy = convertToClashProxy(wgConfig, file.name);
+            proxyList.push(proxy);
+
+            if (index === files.length - 1) {
+              const yamlProxies = proxyList.map(proxy => {
+                let yaml = `  - name: ${proxy.name}\n`;
+                yaml += `    type: ${proxy.type}\n`;
+                yaml += `    server: ${proxy.server}\n`;
+                yaml += `    port: ${proxy.port}\n`;
+                yaml += `    ip: ${proxy.ip}\n`;
+                yaml += `    private-key: ${proxy.private_key}\n`;
+                yaml += `    public-key: ${proxy.public_key}\n`;
+                yaml += `    allowed-ips: [${proxy.allowed_ips.join(', ')}]\n`;
+                yaml += `    udp: ${proxy.udp}\n`;
+                yaml += `    mtu: ${proxy.mtu}\n`;
+                yaml += `    remote-dns-resolve: ${proxy.remote_dns_resolve}\n`;
+                yaml += `    dns: [${proxy.dns.join(', ')}]\n`;
+                yaml += generateAmneziaOptionsYAML(proxy['amnezia-wg-option'], proxy.isDefaultAmnezia);
+                return yaml;
+              }).join('\n\n');
+
+              const proxyGroups = generateProxyGroups(proxyList);
+              const fullYaml = `proxies:\n${yamlProxies}\n\nproxy-groups:${proxyGroups}`;
+              
+              document.getElementById('yamlOutput').value = fullYaml;
+              document.getElementById('downloadBtn').classList.remove('hidden');
+              document.getElementById('downloadBtn').onclick = () => downloadYAML(fullYaml);
+            }
+          } catch (e) {
+            alert(`Ошибка в файле ${file.name}: ${e.message}`);
+          }
+        };
+        reader.readAsText(file);
+      });
+    }
+
+    function downloadYAML(yamlContent) {
+      const blob = new Blob([yamlContent], { type: 'text/yaml' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'clash-config.yaml';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+  </script>
+</body>
+</html>
