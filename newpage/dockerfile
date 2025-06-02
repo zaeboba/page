@@ -1,0 +1,12 @@
+# Используем официальный образ Node.js версии 16
+FROM node:16
+
+# Устанавливаем web-ext глобально
+RUN npm install --global web-ext
+
+# Копируем все файлы расширения в контейнер
+WORKDIR /extension
+COPY . /extension
+
+# Запускаем команды web-ext
+CMD ["web-ext", "build"]

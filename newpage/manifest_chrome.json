@@ -1,0 +1,19 @@
+{
+  "manifest_version": 2,
+  "name": "tartarus-startup",
+  "description": "Simple startup page",
+  "version": "2.0",
+  "browser_action": {
+    "default_popup": "index.html"
+  },
+  "permissions": ["tabs"],
+  "chrome_url_overrides": {
+    "newtab": "index.html"
+  },
+  "applications": {
+    "gecko": {
+      "id": "tartarus-startup@example.com",
+      "strict_min_version": "111.0"
+    }
+  }
+}
