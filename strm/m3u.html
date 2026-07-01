@@ -189,8 +189,6 @@
             }
         }
         
-        @keyframes flicker { 0%, 100% { opacity: 1; } 50% { opacity: 0.98; } }
-        
         .file-area {
             margin: 20px 0;
             padding: 20px;
@@ -234,15 +232,6 @@
             96% { transform: translate(-1px, -2px) skew(-1deg); }
             98% { transform: translate(0) skew(0deg); }
             100% { transform: translate(0) skew(0deg); }
-        }
-        
-        .crt-bulge {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 2;
-            pointer-events: none;
-            background: radial-gradient(circle at center, transparent 60%, rgba(0,0,0,0.3) 80%, rgba(0,0,0,0.6) 100%);
-            box-shadow: inset 0 0 150px rgba(0,0,0,0.5);
         }
         
         .file-info { color: #00ffff; margin: 10px 0; font-size: 18px; }
@@ -395,13 +384,6 @@
             transform: translate(-50%, -50%) scale(1.4);
             filter: contrast(1.2) saturate(0.8);
         }
-        
-        #video-wrapper iframe {
-            width: 200vw;
-            height: 200vh;
-            transform: translate(-50%, -50%) scale(1.4);
-            filter: contrast(1.2) saturate(0.8);
-        }
     </style>
 </head>
 <body>
@@ -457,10 +439,8 @@
     </div>
 
     <script>
-        // === CONFIG ===
-        const USE_YOUTUBE = false;        // true = YouTube, false = local video
-        const YOUTUBE_VIDEO_ID = 'NKzIXhpbaw4';  // YouTube video ID
-        // ==============
+        const USE_YOUTUBE = false;        
+        const YOUTUBE_VIDEO_ID = 'NKzIXhpbaw4';  
         
         let player;
         
@@ -473,7 +453,7 @@
         }
         
         function getRandomVideo() {
-            const maxVideos = 4; // change this number when you add more videos (1.webm, 2.webm, etc.)
+            const maxVideos = 4; 
             const randomNum = Math.floor(Math.random() * maxVideos) + 1;
             return randomNum + '.webm';
         }
@@ -520,6 +500,56 @@
             return filename.replace(/[<>:"/\\|?*]/g, '_').replace(/\s+/g, ' ').trim() || 'unnamed';
         }
         
+        function cleanSeriesFolderName(filename) {
+            let name = filename.replace(/\.m3u$/i, '');
+            name = name.replace(/\[.*?\]|\(.*?\)/g, '').trim();
+            return cleanFilename(name.replace(/\s+/g, ' '));
+        }
+
+        function extractMeta(title) {
+            const cleanTitle = title.toLowerCase();
+            
+            // 1. s01e01, s1e1, s01.e01, s01_e01
+            const sEpMatch = cleanTitle.match(/s(\d+)\s*[\.\-_]?\s*e(\d+)/);
+            if (sEpMatch) {
+                return { season: parseInt(sEpMatch[1], 10), episode: parseInt(sEpMatch[2], 10) };
+            }
+            
+            // 2. 1x01 / 01x05
+            const xMatch = cleanTitle.match(/(?:^|[^a-z0-9])(\d+)\s*x\s*(\d+)/);
+            if (xMatch) {
+                return { season: parseInt(xMatch[1], 10), episode: parseInt(xMatch[2], 10) };
+            }
+            
+            // 3. Сезон 1 Серия 2
+            const textMatch = cleanTitle.match(/(?:сезон|season)\s*(\d+).*?(?:серия|ep|episode)\s*(\d+)/);
+            if (textMatch) {
+                return { season: parseInt(textMatch[1], 10), episode: parseInt(textMatch[2], 10) };
+            }
+
+            // 4. Absolute numbers
+            let absMatch = cleanTitle.match(/(?:^|[^a-z0-9])(?:e)?(0\d+|\d{3,})/);
+            if (!absMatch) {
+                absMatch = cleanTitle.match(/^(?:e)?(\d+)[_\s-]/);
+            }
+            if (absMatch) {
+                return { season: null, episode: parseInt(absMatch[1], 10) };
+            }
+
+            // 5. Fallback for flat lists
+            const cleanNumbersTitle = cleanTitle.replace(/\b(19\d\d|20\d\d|960p|1080p|720p|4k)\b/g, '');
+            const allNumbers = cleanNumbersTitle.match(/\d+/g);
+            if (allNumbers) {
+                const firstNum = parseInt(allNumbers[0], 10);
+                if (allNumbers.length >= 2 && firstNum <= 30) {
+                    return { season: firstNum, episode: parseInt(allNumbers[1], 10) };
+                }
+                return { season: null, episode: firstNum };
+            }
+            
+            return { season: null, episode: null };
+        }
+
         async function downloadFile(content, filename) {
             const blob = new Blob([content], { type: 'text/plain' });
             const url = URL.createObjectURL(blob);
@@ -533,7 +563,7 @@
             await new Promise(r => setTimeout(r, 100));
         }
         
-        let currentStrmFiles = {};
+        let currentStrmFiles = {}; 
         let currentFolderName = '';
         
         async function convertM3U() {
@@ -554,53 +584,93 @@
             try {
                 const text = await fileInput.files[0].text();
                 const lines = text.split('\n');
-                currentStrmFiles = {};
+                
+                const entries = [];
                 let trackTitle = null;
-                currentFolderName = cleanFilename(fileInput.files[0].name.replace('.m3u', ''));
                 
                 for (let i = 0; i < lines.length; i++) {
                     const line = lines[i].trim();
-                    
                     if (line.startsWith('#EXTINF:')) {
-                        const match = line.match(/#EXTINF:0,(.*)$/);
-                        if (match) {
-                            trackTitle = match[1].trim();
-                            trackTitle = trackTitle.replace(/\.(mkv|mp4|avi|webm|m4v)$/i, '.strm');
-                            trackTitle = cleanFilename(trackTitle);
+                        if (line.includes(',')) {
+                            trackTitle = line.split(/,(.+)/)[1].strip ? line.split(/,(.+)/)[1].trim() : line.split(',').slice(1).join(',').trim();
                         } else {
-                            trackTitle = `Unknown_Title_${i}.strm`;
+                            trackTitle = `Unknown_Title_${i}`;
                         }
                     } else if (trackTitle && line.startsWith('http')) {
-                        currentStrmFiles[trackTitle] = line;
+                        entries.push({ title: trackTitle, url: line });
                         trackTitle = null;
                     } else if (trackTitle && !line) {
                         trackTitle = null;
                     }
                 }
                 
-                if (Object.keys(currentStrmFiles).length === 0) {
+                const totalEntries = entries.length;
+                if (totalEntries === 0) {
                     resultDiv.innerHTML = '<div class="error">No valid entries found!</div>';
                     return;
                 }
                 
-                const entries = Object.entries(currentStrmFiles);
-                fileListDiv.innerHTML = '';
-                resultDiv.innerHTML = '<div>Добавление файлов...</div>';
+                const isMovie = totalEntries >= 1 && totalEntries <= 3;
+                currentFolderName = cleanSeriesFolderName(fileInput.files[0].name);
+                currentStrmFiles = {};
                 
-                const delay = 50;
+                let partIdx = 1;
+                fileListDiv.innerHTML = '';
+                
                 for (let i = 0; i < entries.length; i++) {
-                    const [name, url] = entries[i];
+                    const { title, url } = entries[i];
+                    let safeTitle = title.replace(/[^a-zA-Z0-9\s\.\_\-]/g, '').trim();
+                    let strmFilename = '';
+                    let targetPath = '';
+                    
+                    if (isMovie) {
+                        if (totalEntries > 1) {
+                            const extMatch = safeTitle.match(/\.(mkv|mp4|avi|webm|m4v)$/i);
+                            if (extMatch) {
+                                const ext = extMatch[0];
+                                const base = safeTitle.substring(0, safeTitle.length - ext.length);
+                                strmFilename = `${base}_pt${partIdx}${ext}.strm`;
+                            } else {
+                                strmFilename = `${safeTitle}_pt${partIdx}.strm`;
+                            }
+                            partIdx++;
+                        } else {
+                            strmFilename = `${safeTitle}.strm`;
+                        }
+                        targetPath = currentFolderName + '/' + strmFilename;
+                    } else {
+                        const { season, episode } = extractMeta(title);
+                        let prefix = 'Video';
+                        if (season !== null) {
+                            const sStr = String(season).padStart(2, '0');
+                            const targetDir = `${currentFolderName}/Season ${sStr}`;
+                            if (episode !== null) {
+                                prefix = `S${sStr}E${String(episode).padStart(2, '0')}`;
+                            } else {
+                                prefix = `S${sStr}`;
+                            }
+                            strmFilename = `${prefix} - ${safeTitle}.strm`;
+                            targetPath = targetDir + '/' + strmFilename;
+                        } else {
+                            if (episode !== null) {
+                                prefix = `E${String(episode).padStart(4, '0')}`;
+                            }
+                            strmFilename = `${prefix} - ${safeTitle}.strm`;
+                            targetPath = currentFolderName + '/' + strmFilename;
+                        }
+                    }
+                    
+                    currentStrmFiles[targetPath] = url;
+                    
                     const div = document.createElement('div');
                     div.className = 'file-list-item';
-                    div.textContent = `${i + 1}. ${name}`;
+                    div.textContent = `${i + 1}. ${targetPath}`;
                     div.style.animationDelay = `${i * 0.03}s`;
                     fileListDiv.appendChild(div);
-                    fileListDiv.scrollTop = fileListDiv.scrollHeight;
-                    await new Promise(r => setTimeout(r, delay));
                 }
                 
                 downloadButtons.style.display = 'block';
-                resultDiv.innerHTML = '';
+                resultDiv.innerHTML = `<div>Найдено видео-ссылок: ${totalEntries}. Готово к скачиванию как ${isMovie ? (totalEntries > 1 ? 'МНОГОСЕРИЙНЫЙ ФИЛЬМ' : 'ОДИНОЧНЫЙ ФИЛЬМ') : 'СЕРИАЛ'}.</div>`;
                 
             } catch (e) {
                 resultDiv.innerHTML = `<div class="error">Error: ${e.message}</div>`;
@@ -618,13 +688,11 @@
             resultDiv.innerHTML = '<div>Скачивание...</div>';
             
             for (let i = 0; i < entries.length; i++) {
-                const [name, url] = entries[i];
-                const fullName = currentFolderName + '/' + name;
-                
-                await downloadFile(url, fullName);
+                const [path, url] = entries[i];
+                await downloadFile(url, path);
                 
                 const div = document.createElement('div');
-                div.textContent = `${i + 1}/${entries.length}: ${name}`;
+                div.textContent = `${i + 1}/${entries.length}: ${path}`;
                 resultDiv.appendChild(div);
             }
             
@@ -652,12 +720,11 @@
                 const entries = Object.entries(currentStrmFiles);
                 
                 for (let i = 0; i < entries.length; i++) {
-                    const [name, url] = entries[i];
-                    const fullName = currentFolderName + '/' + name;
-                    zip.file(fullName, url);
+                    const [path, url] = entries[i];
+                    zip.file(path, url);
                     
                     const div = document.createElement('div');
-                    div.textContent = `Добавлено: ${i + 1}/${entries.length}: ${name}`;
+                    div.textContent = `Добавлено: ${i + 1}/${entries.length}: ${path}`;
                     resultDiv.appendChild(div);
                 }
                 
@@ -692,16 +759,8 @@
         document.getElementById('downloadAllBtn').addEventListener('click', downloadAll);
         document.getElementById('downloadZipBtn').addEventListener('click', downloadAllAsZip);
         
-        function initVideo() {
-            if (!USE_YOUTUBE) {
-                const video = document.getElementById('localVideo');
-                const videoPath = getRandomVideo();
-                video.src = videoPath;
-            }
-        }
-        
         document.getElementById('counter').textContent = 
-            (parseInt(document.getElementById('counter').textContent) + Math.floor(Math.random() * 5))
+            (parseInt(document.getElementById('counter').textContent, 10) + Math.floor(Math.random() * 5))
             .toString().padStart(5, '0');
         
         window.addEventListener('load', initVideo);
