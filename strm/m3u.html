@@ -509,25 +509,21 @@
         function extractMeta(title) {
             const cleanTitle = title.toLowerCase();
             
-            // 1. s01e01, s1e1, s01.e01, s01_e01
             const sEpMatch = cleanTitle.match(/s(\d+)\s*[\.\-_]?\s*e(\d+)/);
             if (sEpMatch) {
                 return { season: parseInt(sEpMatch[1], 10), episode: parseInt(sEpMatch[2], 10) };
             }
             
-            // 2. 1x01 / 01x05
             const xMatch = cleanTitle.match(/(?:^|[^a-z0-9])(\d+)\s*x\s*(\d+)/);
             if (xMatch) {
                 return { season: parseInt(xMatch[1], 10), episode: parseInt(xMatch[2], 10) };
             }
             
-            // 3. Сезон 1 Серия 2
             const textMatch = cleanTitle.match(/(?:сезон|season)\s*(\d+).*?(?:серия|ep|episode)\s*(\d+)/);
             if (textMatch) {
                 return { season: parseInt(textMatch[1], 10), episode: parseInt(textMatch[2], 10) };
             }
 
-            // 4. Absolute numbers
             let absMatch = cleanTitle.match(/(?:^|[^a-z0-9])(?:e)?(0\d+|\d{3,})/);
             if (!absMatch) {
                 absMatch = cleanTitle.match(/^(?:e)?(\d+)[_\s-]/);
@@ -536,7 +532,6 @@
                 return { season: null, episode: parseInt(absMatch[1], 10) };
             }
 
-            // 5. Fallback for flat lists
             const cleanNumbersTitle = cleanTitle.replace(/\b(19\d\d|20\d\d|960p|1080p|720p|4k)\b/g, '');
             const allNumbers = cleanNumbersTitle.match(/\d+/g);
             if (allNumbers) {
@@ -592,7 +587,7 @@
                     const line = lines[i].trim();
                     if (line.startsWith('#EXTINF:')) {
                         if (line.includes(',')) {
-                            trackTitle = line.split(/,(.+)/)[1].strip ? line.split(/,(.+)/)[1].trim() : line.split(',').slice(1).join(',').trim();
+                            trackTitle = line.split(/,(.+)/)[1].trim();
                         } else {
                             trackTitle = `Unknown_Title_${i}`;
                         }
@@ -619,13 +614,21 @@
                 
                 for (let i = 0; i < entries.length; i++) {
                     const { title, url } = entries[i];
-                    let safeTitle = title.replace(/[^a-zA-Z0-9\s\.\_\-]/g, '').trim();
+                    
+                    let safeTitle = "";
+                    for (let c of title) {
+                        if (/[a-zA-Z0-9а-яА-ЯёЁ\s\.\_\-]/.test(c)) {
+                            safeTitle += c;
+                        }
+                    }
+                    safeTitle = safeTitle.trim();
+                    
                     let strmFilename = '';
                     let targetPath = '';
                     
                     if (isMovie) {
                         if (totalEntries > 1) {
-                            const extMatch = safeTitle.match(/\.(mkv|mp4|avi|webm|m4v)$/i);
+                            const extMatch = safeTitle.match(/\.(mkv|mp4|avi)$/i);
                             if (extMatch) {
                                 const ext = extMatch[0];
                                 const base = safeTitle.substring(0, safeTitle.length - ext.length);
@@ -640,10 +643,10 @@
                         targetPath = currentFolderName + '/' + strmFilename;
                     } else {
                         const { season, episode } = extractMeta(title);
-                        let prefix = 'Video';
                         if (season !== null) {
                             const sStr = String(season).padStart(2, '0');
                             const targetDir = `${currentFolderName}/Season ${sStr}`;
+                            let prefix = "";
                             if (episode !== null) {
                                 prefix = `S${sStr}E${String(episode).padStart(2, '0')}`;
                             } else {
@@ -652,8 +655,11 @@
                             strmFilename = `${prefix} - ${safeTitle}.strm`;
                             targetPath = targetDir + '/' + strmFilename;
                         } else {
+                            let prefix = "";
                             if (episode !== null) {
                                 prefix = `E${String(episode).padStart(4, '0')}`;
+                            } else {
+                                prefix = "Video";
                             }
                             strmFilename = `${prefix} - ${safeTitle}.strm`;
                             targetPath = currentFolderName + '/' + strmFilename;
