@@ -96,8 +96,16 @@
     position:absolute; z-index:300; background:#151022; border:2px solid var(--ui-accent);
     border-radius:8px; overflow:hidden; box-shadow:0 6px 24px rgba(0,0,0,0.6);
     display:none; flex-direction:column;
+    min-width:220px; min-height:160px;
   }
   .floatWin.show{display:flex;}
+  .resizeHandle{
+    position:absolute; width:16px; height:16px; z-index:310;
+  }
+  .resizeHandle.tl{top:-4px; left:-4px; cursor:nwse-resize;}
+  .resizeHandle.tr{top:-4px; right:-4px; cursor:nesw-resize;}
+  .resizeHandle.bl{bottom:-4px; left:-4px; cursor:nesw-resize;}
+  .resizeHandle.br{bottom:-4px; right:-4px; cursor:nwse-resize;}
   .floatWin .titlebar{
     background:linear-gradient(90deg,#2a2440,#3a2f55); padding:5px 8px; cursor:move;
     display:flex; justify-content:space-between; align-items:center; font-size:11px;
@@ -186,17 +194,23 @@
       </div>
     </div>
 
-    <div class="floatWin" id="winObs" style="left:60px; top:40px; width:400px; height:270px;">
+    <div class="floatWin" id="winObs" style="left:40px; top:30px; width:620px; height:430px;">
       <div class="titlebar"><span>🎥 OBS Studio — Twitch preview</span><span class="x" data-close="winObs">✕</span></div>
       <div class="body"><iframe id="twitchPlayerFrame" src="" allowfullscreen></iframe></div>
+      <div class="resizeHandle tl"></div><div class="resizeHandle tr"></div>
+      <div class="resizeHandle bl"></div><div class="resizeHandle br"></div>
     </div>
-    <div class="floatWin" id="winChat" style="left:480px; top:40px; width:220px; height:340px;">
+    <div class="floatWin" id="winChat" style="left:680px; top:30px; width:340px; height:500px;">
       <div class="titlebar"><span>💬 Twitch Chat</span><span class="x" data-close="winChat">✕</span></div>
       <div class="body"><iframe id="twitchChatFrame" src=""></iframe></div>
+      <div class="resizeHandle tl"></div><div class="resizeHandle tr"></div>
+      <div class="resizeHandle bl"></div><div class="resizeHandle br"></div>
     </div>
-    <div class="floatWin" id="winYt" style="left:180px; top:70px; width:380px; height:260px;">
+    <div class="floatWin" id="winYt" style="left:150px; top:60px; width:580px; height:400px;">
       <div class="titlebar"><span>▶ YouTube</span><span class="x" data-close="winYt">✕</span></div>
       <div class="body"><iframe id="ytFrame" src="" allowfullscreen></iframe></div>
+      <div class="resizeHandle tl"></div><div class="resizeHandle tr"></div>
+      <div class="resizeHandle bl"></div><div class="resizeHandle br"></div>
       <div id="ytControls">
         <button class="active" data-idx="0">Видео 1</button>
         <button data-idx="1">Видео 2</button>
@@ -597,6 +611,47 @@ document.querySelectorAll('.floatWin .titlebar').forEach(bar=>{
   window.addEventListener('mouseup', ()=> dragging=false);
 });
 
+/* растягивание плавающих окон за угловые ручки */
+document.querySelectorAll('.floatWin').forEach(win=>{
+  win.querySelectorAll('.resizeHandle').forEach(handle=>{
+    const corner = [...handle.classList].find(c=>['tl','tr','bl','br'].includes(c));
+    let resizing=false, startX=0, startY=0, startW=0, startH=0, startLeft=0, startTop=0;
+    handle.addEventListener('mousedown', e=>{
+      resizing=true; e.preventDefault(); e.stopPropagation();
+      startX=e.clientX; startY=e.clientY;
+      startW=win.offsetWidth; startH=win.offsetHeight;
+      startLeft=win.offsetLeft; startTop=win.offsetTop;
+    });
+    window.addEventListener('mousemove', e=>{
+      if (!resizing) return;
+      const dx = e.clientX-startX, dy = e.clientY-startY;
+      const minW = 220, minH = 160;
+      if (corner==='br'){
+        win.style.width = Math.max(minW, startW+dx)+'px';
+        win.style.height = Math.max(minH, startH+dy)+'px';
+      } else if (corner==='bl'){
+        const w = Math.max(minW, startW-dx);
+        win.style.width = w+'px';
+        win.style.height = Math.max(minH, startH+dy)+'px';
+        win.style.left = (startLeft + (startW-w))+'px';
+      } else if (corner==='tr'){
+        const h = Math.max(minH, startH-dy);
+        win.style.width = Math.max(minW, startW+dx)+'px';
+        win.style.height = h+'px';
+        win.style.top = (startTop + (startH-h))+'px';
+      } else if (corner==='tl'){
+        const w = Math.max(minW, startW-dx);
+        const h = Math.max(minH, startH-dy);
+        win.style.width = w+'px';
+        win.style.height = h+'px';
+        win.style.left = (startLeft + (startW-w))+'px';
+        win.style.top = (startTop + (startH-h))+'px';
+      }
+    });
+    window.addEventListener('mouseup', ()=> resizing=false);
+  });
+});
+
 /* ======================================================================
    УЛИЦА → ПЯТЁРОЧКА (горизонтальный сайд-скроллер на основе Улица.jpg)
    ====================================================================== */
@@ -943,7 +998,7 @@ allImgs.forEach(im=>{
 const CONFIG = {
   twitchChannel: "l3syan",
   youtubeVideos: ["jD8N8tSGKlE", "qsC-cYWr0Jk"],
-  radioUrl: "https://mscp4.live-streams.nl:8142/lounge.ogg",
+  radioUrl: "http://89.223.45.5:8000/indigo-flac",
   radioVolume: 0.5,
 };
 </script>
