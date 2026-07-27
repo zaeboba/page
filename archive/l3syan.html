@@ -763,13 +763,25 @@ function enterSwing(){
   const audio = $('radioAudio');
   audio.src = CONFIG.radioUrl;
   audio.volume = CONFIG.radioVolume;
-  audio.play().catch(()=>{ toast('🔇 Автовоспроизведение звука заблокировано браузером — нажми ещё раз.'); });
+  audio.load();
+  const tryPlay = () => audio.play().catch(()=>{
+    toast('🔇 Браузер заблокировал автовоспроизведение — кликни по экрану, чтобы включить радио.');
+  });
+  tryPlay();
 }
 function exitSwing(){
   state.scene='apartment';
   $('swingScene').classList.remove('show');
   $('radioAudio').pause();
 }
+// клик по ночному двору — повторная попытка запустить радио (обход блокировки автоплея)
+$('swingScene').addEventListener('click', ()=>{
+  const audio = $('radioAudio');
+  if (audio.paused) audio.play().then(()=>toast('🔊 Радио включено')).catch(()=>toast('⚠️ Радио недоступно (проверь ссылку в CONFIG или соединение)'));
+});
+$('radioAudio').addEventListener('error', ()=>{
+  toast('⚠️ Не удалось загрузить радиопоток. Проверь ссылку CONFIG.radioUrl.');
+});
 const SWING_CELL_W = 169, SWING_CELL_H = 227, SWING_FRAMES = 8;
 function updateSwing(dt){
   swing.timer += dt;
@@ -892,7 +904,7 @@ function loop(ts){
 
 function fitStage(){
   const wrap = $('stageWrap');
-  const scale = Math.max(window.innerWidth/mapW, window.innerHeight/mapH);
+  const scale = Math.min(window.innerWidth/mapW, window.innerHeight/mapH);
   wrap.style.width = (mapW*scale)+'px';
   wrap.style.height = (mapH*scale)+'px';
 }
