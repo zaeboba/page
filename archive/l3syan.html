@@ -411,7 +411,7 @@ function updateSima(dt){
 function drawCats(ctx){
   // Фокс уже нарисован на текстуре квартиры (спит на окне) — отдельный спрайт не нужен
   const simg = img.sima[sima.frame];
-  const flip = sima.dir.x < 0;
+  const flip = sima.dir.x > 0;
   ctx.save();
   if (flip){ ctx.translate(sima.x, 0); ctx.scale(-1,1); ctx.translate(-sima.x,0); }
   ctx.drawImage(simg, sima.x-27, sima.y-40, 54, 46);
